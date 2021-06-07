@@ -1,0 +1,28 @@
+{
+    "_variables": {
+        "WIND_SPEED": {
+            "minValue": 0,
+            "maxValue": 200,
+            "maxValueSeason": [200,200,200,200],
+            "minValueSeason": [0,0,0,0],
+            "spikeValue": 10,
+            "nFlatline": 5,
+            "changeRate": 10
+        },
+        "WIND_DIRECTION": {
+        },
+        "RADIATION": {
+            "minValue": 0,
+            "maxValue": 2000
+        },
+        "PAR": {
+        },
+        "AIR_TEMPERATURE": {
+        },
+        "WATER_TEMPERATURE": {
+
+        },
+        "PRESSURE":{
+        }
+    }
+}
