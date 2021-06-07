@@ -1,0 +1,415 @@
+---
+title: "AIMS Weather Stations"
+author: 'E. Klein'
+date: "2021-05-10"
+output: 
+  html_document:
+    toc:  TRUE
+    toc_float: TRUE
+    toc_depth: 4
+    theme: united
+    highlight: tango
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, cache = F, echo = F, message = F, warning = F, tidy = F}
+# make this an external chunk that can be included in any file
+require(knitr)
+options(width = 100)
+opts_chunk$set(echo =T, message = F, error = F, warning = F, comment = NA,  
+               fig.align = 'left',  fig.width = 7.5, fig.height = 6,
+               tidy = F, cache.path = '.cache/', fig.path = 'fig/')
+               
+library(RColorBrewer)
+palette(brewer.pal(8, "Set2"))
+
+library(leaflet)
+library(DT)
+library(jsonlite)
+library(sparkline)
+library(kableExtra)
+library(htmltools)
+library(formattable)
+library(dplyr)
+
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+```
+
+last run `r Sys.time()`
+
+```{=html}
+<style>
+
+.legend i{
+      border-radius: 50%;
+      width: 10px;
+      height: 10px;
+      margin-top: 4px;
+      }
+</style>
+```
+# Introduction
+
+This document describes the data available form AIMS weather stations, the sites and parameters available, the QC protocols AIMS runs on the data and instructions on how to get the data.
+
+Also, some recommendations are presented for future enhancements of the QC workflow.
+
+# The Marine Weather Stations
+
+From AIMS [weather stations metadata page](https://apps.aims.gov.au/metadata/view/0887cb5b-b443-4e08-a169-038208109466):
+
+> Automatic weather stations have been deployed by AIMS since 1980. Most of the stations are along the Great Barrier Reef including the Torres Strait in North-Eastern Australia but there is also a station in Darwin and one in Ningaloo Reef in Western Australia. Many of the stations are located on the reef itself either on poles located in the reef lagoon or on tourist pontoons or other structures.
+
+### Data availability
+
+```{r}
+ws = fromJSON("https://api.aims.gov.au/weather/latestreadings")
+siteID = ws$site_id
+wsMetadata = data.frame()
+for (site in siteID){
+  siteDF = fromJSON(paste0("https://api.aims.gov.au/weather/station/", site))
+  wsMetadata = bind_rows(wsMetadata, 
+                         data.frame(siteID = site, 
+                                    site = siteDF$site_name, 
+                                    parameters = paste0(names(siteDF$series), collapse = ", ")))
+  
+}
+
+kable(wsMetadata) %>% kable_styling("striped")
+```
+
+-   Location: There are `r nrow(ws)` sites.
+-   Sampling interval: 10min (it may vary)
+
+### Locations
+
+Click on any point and the link `metadata page` will open the corresponding metadata record of the weather station
+
+```{r}
+
+## read WS UUID
+wsLastReadings = fromJSON("https://api.aims.gov.au/weather/latestreadings")
+
+ws = wsLastReadings[,c("site_name", "latitude", "longitude", "metadata")]
+ws$popup = paste0(ws$site_name, 
+                        "</br>",
+                        "<a href='",
+                        ws$metadata,
+                        "' target='_blank'>", 
+                        " Metadata Record </a>")
+
+m = leaflet(ws) %>% addProviderTiles(providers$Esri.WorldImagery) %>% 
+  addCircleMarkers(lat=~latitude, lng=~longitude, radius = 7, 
+                 stroke = T, fill = T, fillColor = "red", fillOpacity = 0.7,weight = 1, color = "white",
+                 popup = ~popup) 
+
+m
+
+```
+
+### Data access
+
+To obtain the weather stations names and parameters and the latest readings, AIMS provides few web services that are used to generate the AIMS Data web page. These services could be called to get a JSON object with the available data.
+
+To request a more complex query, it is convenient to use the AIMS Data API platform. See documentation here:
+
+<https://open-aims.github.io/data-platform/swagger/>
+
+#### Station Names
+
+To get the available site names as a JSON object, use the following call:
+
+<https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/sites>
+
+```{r}
+stationList = fromJSON(url("https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/sites"))
+print(stationList)
+```
+
+#### Available Parameters
+
+This is a list of all available parameters registered by at least one instrument at one station. Not all the stations have all parameters, and some parameters are not longer measured.
+
+To get the list of parameters, use the following call:
+
+<https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/parameters>
+
+```{r}
+paramList = fromJSON(url("https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/parameters"))
+print(paramList)
+```
+
+#### Parameters as series
+
+Each parameter at each weather station is identified as a "series" with an unique ID. It is important to know the series ID in order to be able to get the data programatically. To get the full list of parameter's series ID use the following call:
+
+<https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/series>
+
+```{r}
+seriesList = fromJSON(url("https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/series"))
+nSeries =nrow(seriesList)
+datatable(seriesList)
+```
+
+There are **`r  nSeries` series** available at the date of this report.
+
+#### Data from a Station
+
+The data from each parameter (series) could be obtained programmatically using the AIMS DATA API. A personal API Key is needed and passed to every call. You can get you API key from here:
+
+<https://open-aims.github.io/data-platform/key-request>
+
+This is an example from Davis Reef WS Wind Speed (scalar) from 2018-01-01 thru 2018-01-07
+
+```{r}
+require(httr)
+AIMSkey = Sys.getenv("AIMS_DATAPLATFORM_API_KEY")  ## this is my personal key
+query = "https://api.aims.gov.au/data/v1.0/10.25845/5c09bf93f315d/data?site-name=Davies%20Reef&series=73&parameter=Wind%20Speed%20%28Scalar%20avg%2010%20min%29&from-date=2018-01-01&thru-date=2018-01-07&min-latitude=-20&max-latitude=-18&min-longitude=140&max-longitude=150&size=1000"
+getdata = GET(url=query, 
+              add_headers(c("x-api-key"="8iRE3FsfSP8EukGEf4n4yxqyEqdDPeK9bscnvDId",
+                            Accept="application/json")))
+
+daviesData = fromJSON(content(getdata, type='text', encoding = 'UTF-8'))
+
+datatable(daviesData$results)
+```
+
+The API call also returns the correct citation string:
+
+```{r}
+print(daviesData$citation)
+```
+
+And the metadata record address:
+
+```{r}
+print(daviesData$metadata)
+```
+
+#### Getting data for web service
+
+AIMS provide an access to the most recent data. This call is very useful when we are interested only in the most recent data. There are two fundamental calls that could be used to obtain data from the stations:
+
+##### get the latest readings
+
+This call will return a JSON object with the last values read from all parameters from all stations:
+
+<https://api.aims.gov.au/weather/latestreadings>
+
+For each station, a nested object is returned with the following structure:
+
+```{r}
+latestReadings = fromJSON(url("https://api.aims.gov.au/weather/latestreadings"), simplifyDataFrame = F)
+print(str(latestReadings[[1]], give.attr = F))
+```
+
+The actual values of each parameter is nested below series -\> parameter name -\> data. Note that you can know when a channel is on-line looking at Series -\> Parameter -\> Status.
+
+##### get the last 7 days and 12 hours data
+
+A table with the data from the last 7 days is obtained by the call:
+
+<https://api.aims.gov.au/weather/station/1>
+
+where the last number is the ID of the weather station. The call returns a nested object similar to the previous one but with a short time series of 12h with the values at original frequency and a daily average of the last 7 days. See ANNEX: Latest Readings section to see an example of the data.
+
+# The QC protocols
+
+When getting data from any weather station it is possible to have the original (raw) data and the QCed value. AIMS applies several QC checks on the data, embedded into the production pipeline. The details of these tests are not very well documented. A document sent by ADC provides an outlook of the whole process and the original Java files also describe in detail each one of the tests.
+
+After reviewing the documentation, the QC process as described, includes the following tests:
+
+1.  **GreaterThanRule**: Will fail if observation greater than threshold
+2.  **LessThanRule**: Will fail if observation less than threshold
+3.  **ComparePreviousRule**: Fails if observation is +/- threshold of the previous observation
+4.  **CompareRollingAverage**: Fails if observation is +/- (threshold \* stddev) of X day rolling average
+5.  **CompareRule**: Fails if observation is +/- threshold of observation on another channel at same time
+6.  **MinMaxRule**: Fails if the rolling range is greater than a constant
+
+The thresholds values are hard-coded into the java files, a strategy not recommendable if the threshold value needs to be adjusted.
+
+Other tests not described in the document are present as a Java scripts:
+
+7.  The windspeed zero rule that fails if we have two consecutive zero readings
+8.  AccumulationRule. Specifically for Rain Accumulation. Should never go backwards except once per day when it is reset to zero. This reset should always be at 0910 UTC or 0910 local or maybe 0910 UTC+10
+9.  Compare previous rule. Compares a reading to the previous reading for that channel. The rule fails is the difference between the two readings is greater than the constant.
+
+Each rule has a "score" that adds to the total QC score if the rule fails. The score value is hard-coded in the test functions. Depending on the total score, a QC flag is assigned
+
+The QC flags used correspond to the [IMOS quality control flag schema](https://imos.org.au/fileadmin/user_upload/shared/emii/IMOS_netCDF_usermanual_v1.2.pdf):
+
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| Flag | Value                                     | Meaning Description                                                                                                                                                                                                                                                                       |   |   |
++======+===========================================+===========================================================================================================================================================================================================================================================================================+===+===+
+| 0    | No QC performed                           | The level at which all data enter the working archive. They have not yet been quality controlled                                                                                                                                                                                          |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 1    | Good data                                 | Top quality data in which no malfunctions have been identified and all real features have been verified during the quality control process                                                                                                                                                |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 2    | Probably good data                        | Good data in which some features (probably real) are present but these are unconfirmed. Code 2 date are also data in which minor malfunctions may be present but these errors are small and/or can be successfully corrected without seriously affecting the overall quality of the data. |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 3    | Bad data that are potentially correctable | Suspect data in which unusual, and probably erroneous features are observed                                                                                                                                                                                                               |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 4    | Bad data                                  | Obviously erroneous values are observed                                                                                                                                                                                                                                                   |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 5    | Value changed 10                          | Altered by a QC Centre, with original values (before the change) preserved in the history record of the profile                                                                                                                                                                           |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 6    | Not used                                  | Flag 6 is reserved for future use                                                                                                                                                                                                                                                         |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 7    | Not used                                  | Flag 7 is reserved for future use                                                                                                                                                                                                                                                         |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 8    | Interpolated value                        | Indicates that data values are interpolated                                                                                                                                                                                                                                               |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+| 9    | Missing value                             | Indicates that the element is missing                                                                                                                                                                                                                                                     |   |   |
++------+-------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---+---+
+
+## Recommendations
+
+There are few accepted QC protocol in use by several data centres around the world. For ocean data, the Integrated Ocean Observing System (IOOS) for Quality Assurance of Real-Time Oceanographic Data (QARTOD; [https://ioos.noaa.gov/project/QARTOD)](https://ioos.noaa.gov/project/QARTOD)) provides a comprehensive description of the recommended QC rules that could be applied to marine weather data. Some of these protocols are implemented in the IMOS-CSIRO Southern Ocean Time Series (SOTS)
+
+Although some of the AIMS QC test are similar to the IQUOD rules, it would be recommended to implement some of the missing tests and adapt the existing one to the QARTOD formal definition.
+
+The recommended QARTOD tests to be implemented are based on the [wind data tests](<https://ioos.noaa.gov/ioos-in-action/wind-data/>), [temperature and salinity tests](<https://ioos.noaa.gov/ioos-in-action/temperature-salinity/>) and [ocean optics tests](<https://ioos.noaa.gov/ioos-in-action/oceanic-optics/>)
+
+The following tests could be applied to AIMS Weather Station data:
+
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Test                                          | Description                                                                        | Priority             | Remarks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | AIMS equivalent                                           |
++===============================================+====================================================================================+======================+========================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================+===========================================================+
+| Gross Range Test                              | Data point exceeds sensor or operator-selected min/max.                            | Mandatory            | All instruments have a range of response. The test check if the data point is in the accepted range of manufacturer specific possible values                                                                                                                                                                                                                                                                                                                                                                                                                                           | None                                                      |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Climatology Test                              | Test that data point falls within seasonal expectations.                           | Mandatory            | The test checks if the data point is between the accepted regional values, derived from max/min climatological values. This test could accept seasonal threshold values                                                                                                                                                                                                                                                                                                                                                                                                                | GreaterThanRule                                           |
+|                                               |                                                                                    |                      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |                                                           |
+|                                               |                                                                                    |                      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | LessThanRule                                              |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Decreasing Radiance, Irradiance, and PAR Test | Test that subsurface radiance, irradiance, and PAR decrease with increasing depth. | Mandatory            | Applied only for light measurements. If there is more than one instrument in the surface and the water column, the values of these parameters are expected to decrease with depth.                                                                                                                                                                                                                                                                                                                                                                                                     | None                                                      |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Spike Test                                    | Data point n-1 exceeds a selected threshold relative to adjacent data points.      | Strongly recommended | The spike test consists of two operator-selected thresholds, THRSHLD_LOW and THRSHLD_HIGH. Adjacent data points (n-2 and n0) are averaged to form a spike reference (SPK_REF). The absolute value of the spike is tested to capture positive and negative spikes. Large spikes are easier to identify as outliers and flag as failures. Smaller spikes may be real and are only flagged suspect. The settings of the min/max threshold in parameter-dependent. Also, in some parameters like underwater light, spikes needs to be analysed carefully and with the help of other tests. | ComparePreviousRule but only uses the previous data point |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Rate of Change Test                           | Excessive rise/fall test.                                                          | Strongly Recommended | This test inspects the time series for a time rate of change that exceeds a threshold value identified by the operator. Wind speed, direction, and gust values, and temperature and salinity values can change substantially over short periods in all locations, hindering the value of this test. A balance must be found between a threshold set too low, which triggers too many false alarms, and one set too high, making the test ineffective.                                                                                                                                  | CompareRollingAverageRule                                 |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Flat Line Test                                | Invariant value                                                                    | Strongly recommended | When some sensors and/or data collection platforms fail, the result can be a continuously repeated observation of the same value.                                                                                                                                                                                                                                                                                                                                                                                                                                                      | None                                                      |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Attenuated Signal Test                        | A test for inadequate variation of the time series                                 | Suggested            | A common sensor failure mode can provide a data series that is nearly but not exactly a flat line (e.g., if the sensor head were to become wrapped in debris, or Badly worn bearings, a failed grounding wire, signal crosstalk, or inadequate wire shielding might cause such a failure). This test inspects for an SD value or a range variation (MAX-MIN) value that fails to exceed threshold values (MIN_VAR_WARN, MIN_VAR_FAIL) over a selected time period (TST_TIM)                                                                                                            | None                                                      |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+| Multivariate test                             | Comparison to other variables                                                      | Suggested            | This is a complex test and probably is best done by an expert. Some variables tend to vary together. Any apparent deviation from this join variability could be interpreted as a failure.                                                                                                                                                                                                                                                                                                                                                                                              | None                                                      |
++-----------------------------------------------+------------------------------------------------------------------------------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
+
+#### The threshold values file
+
+As a best practice, it is not recommended to hard-code the threshold values into the test functions. If so, any adjustment to the values will require a change in the code itself. A better practice will be to prepare a dictionary style JSON file with the parameters and the tests with its corresponding threshold values. An example of such a file could be:
+
+    {
+        "_variables": {
+            "WIND_SPEED": {
+                "minValue": 0,
+                "maxValue": 200,
+                "maxValueSeason": [200,200,200,200],
+                "minValueSeason": [0,0,0,0],
+                "spikeValue": 10,
+                "nFlatline": 5,
+                "changeRate": 10
+            },
+            "WIND_DIRECTION": {
+            },
+            "RADIATION": {
+                "minValue": 0,
+                "maxValue": 2000
+            },
+            "PAR": {
+            },
+            "AIR_TEMPERATURE": {
+            },
+            "WATER_TEMPERATURE": {
+
+            },
+            "PRESSURE":{
+            }
+        }
+    }
+
+The threshold values must be carefully selected, and a better QC will be possible if the seasonal variability on the climatological values is considered. For example, the expected temperature range in summer could be higher than the range in winter.
+
+#### Code examples
+
+There are Python functions for some of the tests available in the [QIMOS repository](<https://github.com/diodon/WeatherStationsQC>). These functions could be used in a QC pipeline and adapted to return the selected QC flag, depending on the outcome of each of the tests.
+
+\newpage
+
+# ANNEX: Latest Readings
+
+This is the latest data report of the weather station operational status, including the most recent data from all available parameters. This report corresponds to `r Sys.time()`
+
+```{r}
+
+makeWStable = function(site){
+  ws = fromJSON(paste0("https://api.aims.gov.au/weather/station/", site))
+  paramList = names(ws$series)
+  param = paramList[1]
+  online = formatter("span",
+    style = x ~ style(color = ifelse(x, "green", "red")),
+    x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No")))
+  
+  ## get the first parameter, to start filling the table
+  lastValue = tail(ws$series[[param]]$data12Hours$qc, 1)
+  dfAll = data.frame(Site = ws$site_name, 
+                  Parameter = ws$series[[param]]$parameterName,
+                  seriesID = ws$series[[param]]$series_id,
+                  units = ws$series[[param]]$uomSymbol,
+                  QAQC = paste0(unique(ws$series[[param]]$data7Days$flag), collapse = ", "),
+                  online = online(as.logical(ws$series[[param]]$status$online)),
+                  lastReading = ws$series[[param]]$minutesAgo,
+                  lastValue = ifelse(is.null(lastValue), NA, round(lastValue,2)),
+                  max7Days = max(as.numeric(ws$series[[param]]$data7Days$qc)),
+                  min7Days = min(as.numeric(ws$series[[param]]$data7Days$qc)),
+                  Last12Hours = spk_chr(as.numeric(ws$series[[param]]$data12Hours$qc)),
+                  Last7D = spk_chr(as.numeric(ws$series[[param]]$data7Days$qc)))
+  
+  ## get the rest of the parameters
+  for (param in paramList[-1]){
+    lastValue = tail(ws$series[[param]]$data12Hours$qc, 1)
+    df = data.frame(Site = ws$site_name,
+                    Parameter = ws$series[[param]]$parameterName,
+                    seriesID = ws$series[[param]]$series_id,
+                    units = ws$series[[param]]$uomSymbol,
+                    QAQC = paste0(unique(ws$series[[param]]$data12Hours$flag), collapse = ", "),
+                    online = online(as.logical(ws$series[[param]]$status$online)),
+                    lastReading = ws$series[[param]]$minutesAgo,
+                    lastValue = ifelse(is.null(lastValue), NA, round(lastValue,2)),
+                    max7Days = max(as.numeric(ws$series[[param]]$data7Days$qc)),
+                    min7Days = min(as.numeric(ws$series[[param]]$data7Days$qc)),
+                    Last12Hours = spk_chr(as.numeric(ws$series[[param]]$data12Hours$qc)),
+                    Last7D = spk_chr(as.numeric(ws$series[[param]]$data7Days$qc)))
+    dfAll = bind_rows(dfAll, df)
+  }
+ 
+  return(dfAll)
+}
+```
+
+```{r results='asis'}
+sparkline(0)
+
+siteList = wsLastReadings$site_id
+
+tableSite = makeWStable(siteList[1])
+# tableSite$Site = wsLastReadings$site_name[wsLastReadings$site_id==siteList[1]]
+# tableSite = tableSite %>% relocate(Site)
+
+for (site in siteList[-1]){
+  tableSite0 = makeWStable(site)
+  # tableSite0$Site = wsLastReadings$site_name[wsLastReadings$site_id==site]
+  # tableSite0 = tableSite0 %>% relocate(Site)
+  tableSite = bind_rows(tableSite,tableSite0)
+ 
+}
+
+formattable(tableSite, col.names=c("Site", "Parameter", "Series ID", "units", "QC flags", "is online?", 
+                                   "last read (minutes)", "last Value", "7days max", "7days min", 
+                                   "last 12h", "last 7d"))
+
+```
+
+# ANNEX: QC protocols document

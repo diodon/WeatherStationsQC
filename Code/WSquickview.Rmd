@@ -1,0 +1,90 @@
+---
+title: "Weather Station Summary"
+output: html_document
+---
+
+<!-- Eduardo Klein -->
+<!-- eklein at ocean-anaylitcs dot com dot au -->
+<!-- 2021-05-20 -->
+
+
+```{r setup, cache = F, echo = F, message = F, warning = F, tidy = F}
+# make this an external chunk that can be included in any file
+require(knitr)
+options(width = 100)
+opts_chunk$set(echo =F, message = F, error = F, warning = F, comment = NA,  
+               fig.align = 'left',  fig.width = 7.5, fig.height = 6,
+               tidy = F, cache.path = '.cache/', fig.path = 'fig/')
+               
+library(RColorBrewer)
+palette(brewer.pal(8, "Set2"))
+
+library(leaflet)
+library(jsonlite)
+library(sparkline)
+library(kableExtra)
+library(formattable)
+library(dplyr)
+
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+```
+
+last run `r Sys.time()`
+
+
+
+```{r}
+
+makeWStable = function(site){
+  ws = fromJSON(paste0("https://api.aims.gov.au/weather/station/", site))
+  paramList = names(ws$series)
+  param = paramList[1]
+  online = formatter("span",
+    style = x ~ style(color = ifelse(x, "green", "red")),
+    x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No")))
+  
+  dfAll = data.frame(Parameter = ws$series[[param]]$parameterName,
+                  seriesID = ws$series[[param]]$series_id,
+                  units = ws$series[[param]]$uomSymbol,
+                  QAQC = paste0(unique(ws$series[[param]]$data7Days$flag), collapse = ", "),
+                  online = online(as.logical(ws$series[[param]]$status$online)),
+                  lastReading = ws$series[[param]]$minutesAgo,
+                  lastValue = tail(as.numeric(ws$series[[param]]$data7Days$qc), 1),
+                  max7Days = max(as.numeric(ws$series[[param]]$data7Days$qc)),
+                  min7Days = min(as.numeric(ws$series[[param]]$data7Days$qc)),
+                  Last12Hours = spk_chr(as.numeric(ws$series[[param]]$data12Hours$qc)),
+                  Last7D = spk_chr(as.numeric(ws$series[[param]]$data7Days$qc)))
+  
+  
+  for (param in paramList[-1]){
+    df = data.frame(Parameter = ws$series[[param]]$parameterName,
+                    seriesID = ws$series[[param]]$series_id,
+                    units = ws$series[[param]]$uomSymbol,
+                    QAQC = paste0(unique(ws$series[[param]]$data12Hours$flag), collapse = ", "),
+                    online = online(as.logical(ws$series[[param]]$status$online)),
+                    lastReading = ws$series[[param]]$minutesAgo,
+                    lastValue = tail(as.numeric(ws$series[[param]]$data7Days$qc), 1),
+                    max7Days = max(as.numeric(ws$series[[param]]$data7Days$qc)),
+                    min7Days = min(as.numeric(ws$series[[param]]$data7Days$qc)),
+                    Last12Hours = spk_chr(as.numeric(ws$series[[param]]$data12Hours$qc)),
+                    Last7D = spk_chr(as.numeric(ws$series[[param]]$data7Days$qc)))
+    dfAll = bind_rows(dfAll, df)
+  }
+ 
+  return(list(site=paste0(ws$site_id, " - ", ws$site_name), table=dfAll))
+}
+
+```
+
+```{r results='asis'}
+sparkline(0)
+site = 1
+wstable = makeWStable(site)
+
+formattable(wstable$table, caption=wstable$site, 
+            col.names=c("Parameter", "Series ID", "units", "QC flags", "is online?", "last read (minutes)", "last Value", 
+                        "7days max", "7days min", "last 12h", "last 7d"))
+
+```
+
