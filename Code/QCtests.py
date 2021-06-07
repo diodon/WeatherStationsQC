@@ -63,7 +63,7 @@ def QCflatline0(x, n, qc=4, epsilon=1e-5):
 
 def QCflatline(x, n, qc=4, epsilon=1e-3):
     '''
-    Flag data that fails the flatline test
+    Flag data that fails the flatline test. Pandas version.
     :param x: numpy array time series
     :param n: length of time to evaluate the flatline
     :param epsilon: tolerance value to define a flat line
