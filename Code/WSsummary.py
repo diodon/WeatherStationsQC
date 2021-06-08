@@ -28,7 +28,7 @@ def WSsummary(site):
         print("Station Name: {stName}".format(stName=WSjson['site_name']))
         print("Station location: {lon}LON, {lat}LAT".format(lon=WSjson['longitude'], lat=WSjson['latitude']))
         print("Station metadata record: {metadata}".format(metadata=WSjson['metadata']))
-        if WSjson['status']=='true':
+        if WSjson['status']['online'] == 'true':
             WSstatus = 'ONLINE'
         else:
             WSstatus = 'OFFLINE'
