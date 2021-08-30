@@ -4,15 +4,67 @@ Python and R functions to explore and perform quality control of data from AIMS 
 
 For the QC protocols, a JSON template for threshold values is drafted. Threshold values need to be read and passed to the functions.
 
-`stationID.py`
+# Python Code
+
+## `stationID.py`
 
 Get the station ID. The ID is the argument to be passed to the python function. Just run this as your first option
 
-`AIMSweather_status`
+Example:
 
-Current operation status of the weather stations
+```
+python stationID.py 
++-------------------------+------------+-----------------------------------------------------------------------------+
+|       Station Name      | Station ID |                                 Metadata url                                |
++-------------------------+------------+-----------------------------------------------------------------------------+
+| Agincourt Reef Number 3 |     1      | https://apps.aims.gov.au/metadata/view/5ee39300-4ade-11dc-8f56-00008a07204e |
+|    Cape Bowling Green   |     2      | https://apps.aims.gov.au/metadata/view/5f30a190-4ade-11dc-8f56-00008a07204e |
+|      Cleveland Bay      |     3      | https://apps.aims.gov.au/metadata/view/82422310-5a9d-11dc-8d3c-00008a07204e |
+|          Darwin         |    1092    | https://apps.aims.gov.au/metadata/view/9c7a97f2-a06a-446c-9712-c6e719da0d24 |
+|       Davies Reef       |     4      | https://apps.aims.gov.au/metadata/view/5fc91100-4ade-11dc-8f56-00008a07204e |
+|        Hardy Reef       |     6      | https://apps.aims.gov.au/metadata/view/603df2e0-4ade-11dc-8f56-00008a07204e |
+|       Heron Island      |    130     | https://apps.aims.gov.au/metadata/view/aefce70d-0ca2-494a-a8f9-47499e2c7f6e |
+|      Lizard Island      |    1166    | https://apps.aims.gov.au/metadata/view/efc69c33-528f-4853-99aa-74d73e0daffa |
+|       Masig Island      |    2601    | https://apps.aims.gov.au/metadata/view/5e211d53-549b-4162-b67c-9c05c1897a7b |
+|      Myrmidon Reef      |     7      | https://apps.aims.gov.au/metadata/view/60b0d8f0-4ade-11dc-8f56-00008a07204e |
+|      Ningaloo Reef      |     8      | https://apps.aims.gov.au/metadata/view/06ea6230-55f3-11dc-8d3c-00008a07204e |
+|       Square Rocks      |     5      | https://apps.aims.gov.au/metadata/view/1b1c2a50-4f9e-11dc-9c63-00008a07204e |
+|     Thursday Island     |    921     | https://apps.aims.gov.au/metadata/view/911a0982-240e-4461-ac0c-107f6e59a355 |
+|         Yongala         |    1165    | https://apps.aims.gov.au/metadata/view/88ef50ff-262e-49b5-90a1-70c3a570045d |
++-------------------------+------------+-----------------------------------------------------------------------------+
 
-`WSsummary.py`
+```
+
+## `AIMSweather_status`
+
+Current operation status of all weather stations
+
+Example: 
+
+```
+ python AIMSweather_status.py 
++------+-------------------------+--------+---------------------------+--------------------------------------------------------------------------------+
+|  ID  |         STATION         | STATUS |        LAST READING       | PARAMETERS                                                                     |
++------+-------------------------+--------+---------------------------+--------------------------------------------------------------------------------+
+|  1   | Agincourt Reef Number 3 | ONLINE | 2021-08-30T16:40:00+10:00 | WindSpeedAverage, AirPressure, AirTemperature, WindDirection, WaterTemperature |
+|  2   |    Cape Bowling Green   | ONLINE | 2021-08-30T16:40:00+10:00 | AirPressure, WindDirection, AirTemperature, WindSpeedAverage                   |
+|  3   |      Cleveland Bay      | ONLINE | 2021-08-30T16:40:00+10:00 | WindDirection, AirTemperature, AirPressure, WaterTemperature, WindSpeedAverage |
+| 1092 |          Darwin         | ONLINE | 2021-08-30T16:00:00+09:30 | AirTemperature, WindSpeedAverage, WindDirection, AirPressure, WaterTemperature |
+|  4   |       Davies Reef       | ONLINE | 2021-08-30T16:40:00+10:00 | AirTemperature, WaterTemperature, WindDirection, WindSpeedAverage, AirPressure |
+|  6   |        Hardy Reef       | ONLINE | 2021-08-30T16:40:00+10:00 | WindDirection, WaterTemperature, AirTemperature, AirPressure, WindSpeedAverage |
+| 130  |       Heron Island      | ONLINE | 2021-08-30T16:40:00+10:00 | WaterTemperature, WindSpeedAverage, WindDirection, AirTemperature, AirPressure |
+| 1166 |      Lizard Island      | ONLINE | 2021-08-30T16:40:00+10:00 | WindSpeedAverage, WindDirection, AirTemperature, AirPressure                   |
+| 2601 |       Masig Island      | ONLINE | 2021-08-30T16:40:00+10:00 | AirPressure, AirTemperature, WaterTemperature, WindDirection, WindSpeedAverage |
+|  7   |      Myrmidon Reef      | ONLINE | 2021-08-30T16:40:00+10:00 | AirTemperature, AirPressure, WindDirection, WindSpeedAverage, WaterTemperature |
+|  8   |      Ningaloo Reef      | ONLINE | 2021-08-30T14:40:00+08:00 | AirTemperature, WindSpeedAverage, WindDirection, AirPressure                   |
+|  5   |       Square Rocks      | ONLINE | 2021-08-30T16:40:00+10:00 | WaterTemperature, AirTemperature, AirPressure, WindDirection, WindSpeedAverage |
+| 921  |     Thursday Island     | ONLINE | 2021-08-30T16:40:00+10:00 | AirPressure, AirTemperature, WindDirection, WindSpeedAverage                   |
+| 1165 |         Yongala         | ONLINE | 2021-08-30T16:00:00+10:00 | AirPressure, AirTemperature, WindSpeedAverage, WindDirection, WaterTemperature |
++------+-------------------------+--------+---------------------------+--------------------------------------------------------------------------------+
+
+```
+
+## `WSsummary.py`
 
     usage: WSsummary.py [-h] -site SITE
 
@@ -50,3 +102,8 @@ Current Status: ONLINE: Some sensors have stopped operating
 +-----------------------------+--------------+---------------------+---------------------------+------------+----------------------------+
 
 ```
+
+
+# R Code
+
+The R code is in the form of Rmarkdown notebooks. 
