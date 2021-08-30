@@ -11,11 +11,13 @@ from sparklines import sparklines
 def args():
     parser = argparse.ArgumentParser(description="AIMS weather station summary: latest readings.")
     parser.add_argument('-site', dest='site', help='site ID',  type=str, default=None, required=True)
+    parser.add_argument('-noplot', dest='screen_plot', help='do not plot the latest readings', action='store_false',
+                        required=False)
     vargs = parser.parse_args()
     return vargs
 
 
-def WSsummary(site):
+def WSsummary(site, screen_plot):
     '''
     Produce a summary of the recent data from a AIMS weather station
     :param site: site ID
@@ -42,7 +44,7 @@ def WSsummary(site):
             paramUnits = WSjson['series'][param]['uomSymbol']
             if len(WSjson['series'][param]['data12Hours']) > 0:
                 WSdata = WSjson['series'][param]['data12Hours']
-                plotType = 'Hourly values'
+                plotType = 'last 12 Hourly values'
             elif len(WSjson['series'][param]['data7Days']) > 0:
                 WSdata = WSjson['series'][param]['data7Days']
                 plotType = 'Daily averages'
@@ -56,15 +58,23 @@ def WSsummary(site):
                 WSvalue.append(item['qc'])
             paramLastDate = WSdate[-1]
             paramLastValue = WSvalue[-1]
-            paramPlot = []
-            for v in sparklines(WSvalue):
-                paramPlot.append(v)
-            paramPlot = paramPlot[0]
-            #if plotType=="Daily averages":
-            paramPlot = paramPlot[len(paramPlot)-85:]
-            tbl.add_row([paramName, paramUnits, minutesAgo, paramLastDate, paramLastValue, paramPlot])
+            if screen_plot:
+                paramPlot = []
+                for v in sparklines(WSvalue):
+                    paramPlot.append(v)
+                paramPlot = paramPlot[0]
+                #if plotType=="Daily averages":
+                paramPlot = paramPlot[len(paramPlot)-25:]
+                tbl.add_row([paramName, paramUnits, minutesAgo, paramLastDate, paramLastValue, paramPlot])
+            else:
+                paramPlot = ""
+                tbl.add_row([paramName, paramUnits, minutesAgo, paramLastDate, paramLastValue])
 
-        tbl.field_names = ['Parameter', 'Units', 'Last Read (min ago)', 'Last Date', 'Last Value', 'Plot ' + plotType]
+        if screen_plot:
+            tbl.field_names = ['Parameter', 'Units', 'Last Read (min ago)', 'Last Date', 'Last Value', 'Plot ' + plotType]
+        else:
+            tbl.field_names = ['Parameter', 'Units', 'Last Read (min ago)', 'Last Date', 'Last Value']
+
         print(tbl)
     except Exception as e:
         print('ERROR: site ID not found')
@@ -78,5 +88,5 @@ def WSsummary(site):
 
 if __name__ == "__main__":
     vargs = args()
-    WSsummary(vargs.site)
+    WSsummary(vargs.site, vargs.screen_plot)
 
