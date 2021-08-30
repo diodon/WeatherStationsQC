@@ -1,6 +1,8 @@
 ---
 title: "Weather Station Summary"
 output: html_document
+params:
+  station: NULL
 ---
 
 <!-- Eduardo Klein -->
@@ -28,11 +30,71 @@ library(dplyr)
 
 # Suppress summarise info
 options(dplyr.summarise.inform = FALSE)
+
+
 ```
 
-last run `r Sys.time()`
 
 
+
+```{r}
+## select one of the station ID
+# +-------------------------+------------+-----------------------------------------------------------------------------+
+# |       Station Name      | Station ID |                                 Metadata url                                |
+# +-------------------------+------------+-----------------------------------------------------------------------------+
+# | Agincourt Reef Number 3 |     1      | https://apps.aims.gov.au/metadata/view/5ee39300-4ade-11dc-8f56-00008a07204e |
+# |    Cape Bowling Green   |     2      | https://apps.aims.gov.au/metadata/view/5f30a190-4ade-11dc-8f56-00008a07204e |
+# |      Cleveland Bay      |     3      | https://apps.aims.gov.au/metadata/view/82422310-5a9d-11dc-8d3c-00008a07204e |
+# |          Darwin         |    1092    | https://apps.aims.gov.au/metadata/view/9c7a97f2-a06a-446c-9712-c6e719da0d24 |
+# |       Davies Reef       |     4      | https://apps.aims.gov.au/metadata/view/5fc91100-4ade-11dc-8f56-00008a07204e |
+# |        Hardy Reef       |     6      | https://apps.aims.gov.au/metadata/view/603df2e0-4ade-11dc-8f56-00008a07204e |
+# |       Heron Island      |    130     | https://apps.aims.gov.au/metadata/view/aefce70d-0ca2-494a-a8f9-47499e2c7f6e |
+# |      Lizard Island      |    1166    | https://apps.aims.gov.au/metadata/view/efc69c33-528f-4853-99aa-74d73e0daffa |
+# |       Masig Island      |    2601    | https://apps.aims.gov.au/metadata/view/5e211d53-549b-4162-b67c-9c05c1897a7b |
+# |      Myrmidon Reef      |     7      | https://apps.aims.gov.au/metadata/view/60b0d8f0-4ade-11dc-8f56-00008a07204e |
+# |      Ningaloo Reef      |     8      | https://apps.aims.gov.au/metadata/view/06ea6230-55f3-11dc-8d3c-00008a07204e |
+# |     One Tree Island     |    131     | https://apps.aims.gov.au/metadata/view/ee22a601-97cf-4b91-ac85-36c0198f912c |
+# |       Square Rocks      |     5      | https://apps.aims.gov.au/metadata/view/1b1c2a50-4f9e-11dc-9c63-00008a07204e |
+# |     Thursday Island     |    921     | https://apps.aims.gov.au/metadata/view/911a0982-240e-4461-ac0c-107f6e59a355 |
+# |         Yongala         |    1165    | https://apps.aims.gov.au/metadata/view/88ef50ff-262e-49b5-90a1-70c3a570045d |
+# +-------------------------+------------+-----------------------------------------------------------------------------+
+
+if (is.null(params$station)){
+  station <- 1
+}else {
+  station <- params$station
+}
+
+
+stationList <- c("1" = 'Agincourt Reef Number 3', 
+                    "2" = 'Cape Bowling Green',
+                    "3" = 'Cleveland Bay',
+                    "1092" = 'Darwin',
+                    "4" = 'Davies Reef',
+                    "6" = 'Hardy Reef', 
+                    "130" = 'Heron Island',
+                    "1166" = 'Lizard Island',
+                    "2601" = 'Masig Island',
+                    "7" = 'Myrmidon Reef', 
+                    "8" = 'Ningaloo Reef',
+                    "131" = 'One Tree Island',
+                    "5" = 'Square Rocks',
+                    "921" = 'Thursday Island', 
+                    "1165" = "Yongala")
+
+if (! as.character(station)  %in% names(stationList)){
+  print("ERROR: please provide a valid station ID from: ")
+  
+}
+
+site <- station
+siteName  <- stationList[[site]]
+
+```
+
+## `r siteName`
+
+### As `r Sys.time()`
 
 ```{r}
 
@@ -78,32 +140,11 @@ makeWStable = function(site){
 ```
 
 ```{r results='asis'}
-## select one of the station ID
-# +-------------------------+------------+-----------------------------------------------------------------------------+
-# |       Station Name      | Station ID |                                 Metadata url                                |
-# +-------------------------+------------+-----------------------------------------------------------------------------+
-# | Agincourt Reef Number 3 |     1      | https://apps.aims.gov.au/metadata/view/5ee39300-4ade-11dc-8f56-00008a07204e |
-# |    Cape Bowling Green   |     2      | https://apps.aims.gov.au/metadata/view/5f30a190-4ade-11dc-8f56-00008a07204e |
-# |      Cleveland Bay      |     3      | https://apps.aims.gov.au/metadata/view/82422310-5a9d-11dc-8d3c-00008a07204e |
-# |          Darwin         |    1092    | https://apps.aims.gov.au/metadata/view/9c7a97f2-a06a-446c-9712-c6e719da0d24 |
-# |       Davies Reef       |     4      | https://apps.aims.gov.au/metadata/view/5fc91100-4ade-11dc-8f56-00008a07204e |
-# |        Hardy Reef       |     6      | https://apps.aims.gov.au/metadata/view/603df2e0-4ade-11dc-8f56-00008a07204e |
-# |       Heron Island      |    130     | https://apps.aims.gov.au/metadata/view/aefce70d-0ca2-494a-a8f9-47499e2c7f6e |
-# |      Lizard Island      |    1166    | https://apps.aims.gov.au/metadata/view/efc69c33-528f-4853-99aa-74d73e0daffa |
-# |       Masig Island      |    2601    | https://apps.aims.gov.au/metadata/view/5e211d53-549b-4162-b67c-9c05c1897a7b |
-# |      Myrmidon Reef      |     7      | https://apps.aims.gov.au/metadata/view/60b0d8f0-4ade-11dc-8f56-00008a07204e |
-# |      Ningaloo Reef      |     8      | https://apps.aims.gov.au/metadata/view/06ea6230-55f3-11dc-8d3c-00008a07204e |
-# |     One Tree Island     |    131     | https://apps.aims.gov.au/metadata/view/ee22a601-97cf-4b91-ac85-36c0198f912c |
-# |       Square Rocks      |     5      | https://apps.aims.gov.au/metadata/view/1b1c2a50-4f9e-11dc-9c63-00008a07204e |
-# |     Thursday Island     |    921     | https://apps.aims.gov.au/metadata/view/911a0982-240e-4461-ac0c-107f6e59a355 |
-# |         Yongala         |    1165    | https://apps.aims.gov.au/metadata/view/88ef50ff-262e-49b5-90a1-70c3a570045d |
-# +-------------------------+------------+-----------------------------------------------------------------------------+
-
 sparkline(0)
-site = 1166
+
 wstable = makeWStable(site)
 
-formattable(wstable$table, caption=wstable$site, 
+formattable(wstable$table, 
             col.names=c("Parameter", "Series ID", "units", "QC flags", "is online?", "last read (minutes)", "last Value", 
                         "7days max", "7days min", "last 12h", "last 7d"))
 
