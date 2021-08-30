@@ -66,13 +66,17 @@ Example:
 
 ## `WSsummary.py`
 
-    usage: WSsummary.py [-h] -site SITE
+```
+usage: WSsummary.py [-h] -site SITE [-noplot]
 
-    AIMS weather station summary: latest readings.
+AIMS weather station summary: latest readings.
 
-    optional arguments:
-      -h, --help  show this help message and exit
-      -site SITE  site ID
+optional arguments:
+  -h, --help  show this help message and exit
+  -site SITE  site ID
+  -noplot     do not plot the latest readings
+```
+
 
 
 Example:
